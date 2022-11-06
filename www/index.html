@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="icon" href="icon.svg" />
+
+		<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+			color: white;
+			font-family: monospace;
+		}
+
+		html {
+			background: #080705;
+		}
+
+		body {
+			max-width: 16cm;
+			margin:auto;
+			overscroll-behavior: contain;
+		}
+
+		.row {
+			display: flex;
+			margin-bottom: 1.5rem;
+		}
+
+		.column {
+			flex:1;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.big-button {
+			flex: 1;
+			padding: 1rem;
+			border: none;
+			margin: 0.5rem 0.25rem;
+			border-radius: 0.5rem 0.5rem 0rem 0rem;
+		}
+
+		.c1 {
+			background: #700548;
+		}
+
+		.c2 {
+			background: #7272AB;
+		}
+
+		.c3 {
+			background: #7899D4;
+		}
+
+		.mouse-button {
+			flex: 1;
+			padding: 1rem;
+			border: none;
+			border-radius: 0.5rem 0.5rem 0rem 0rem;
+			margin-top: -0.5rem;
+		}
+
+		#touchpad {
+			border-radius: 1rem 1rem 0rem 0rem;
+			width: 100%;
+			margin: auto;
+			aspect-ratio: 1/1;
+			--c: #362023;
+			background: 
+				repeating-linear-gradient(45deg, var(--c), transparent 16px, transparent 24px, var(--c) 24px, var(--c) 32px),
+				repeating-linear-gradient(-45deg, var(--c), transparent 16px, transparent 24px, var(--c) 24px, var(--c) 32px);
+		}
+
+		#disconnection {
+			background: #700548;
+		}
+
+		h1 {
+			padding: 0.5rem 0.5rem 1rem;
+		}
+
+		#logo {
+			margin-bottom: -0.25rem;
+			margin-right: 1rem;
+			height: 2rem;
+		}
+
+		</style>
+
+	<title>crunch!</title>
+
+	</head>
+	<body>
+		<div id="disconnection">No connection!</div>
+		<h1><img src="icon.svg" id="logo">crunch!</h1>
+		<div id="touchpad"></div>
+		<div class="row">
+			<button class="mouse-button c1" id="mouse-left">_</button>
+			<button class="mouse-button c2" id="mouse-middle">_</button>
+			<button class="mouse-button c3" id="mouse-right">_</button>
+		</div>
+		<div class="row">
+			<button class="big-button c1" id="direction-left">&lt;</button>
+			<div class="column">
+				<button class="big-button c2" id="direction-up">^</button>
+				<button class="big-button c2" id="direction-down">v</button>
+			</div>
+			<button class="big-button c3" id="direction-right">&gt;</button>
+		</div>
+	</body>
+
+	<script defer>
+		const disconnectionPopup = document.getElementById("disconnection");
+
+		const directionLeftButton = document.getElementById("direction-left");
+		const directionRightButton = document.getElementById("direction-right");
+		const directionUpButton = document.getElementById("direction-up");
+		const directionDownButton = document.getElementById("direction-down");
+
+		const touchPad = document.getElementById("touchpad");
+
+		const mouseLeftButton = document.getElementById("mouse-left");
+		const mouseMiddleButton = document.getElementById("mouse-middle");
+		const mouseRightButton = document.getElementById("mouse-right");
+
+		const sock = new WebSocket(`ws://${location.host}/ws`);
+
+		sock.addEventListener('open', (e) => {
+			console.log("Managed to connect to", sock.url);
+			disconnectionPopup.style.display = 'none';
+		})
+
+		sock.addEventListener('close', (e) => {
+			console.log("Lost connection with", sock.url);
+			disconnectionPopup.style.display = 'block';
+		})
+
+		function send_presentation_packet(v) {
+			sock.send(`DIRK${v.toString()[0]}\n`);
+		}
+
+		function send_mouse_packet(x, y) {
+			let xh = Math.floor(Math.min(Math.max(0,x),1) * 0xffff)
+						.toString(16).padStart(4,'0');
+			let yh = Math.floor(Math.min(Math.max(0,y),1) * 0xffff)
+						.toString(16).padStart(4,'0');
+
+			sock.send(`MOUS${xh}${yh}\n`);
+		}
+
+		function send_button_packet(v) {
+			sock.send(`BUTT${v.toString()[0]}\n`);
+		}
+
+		directionLeftButton.addEventListener("click", () => send_presentation_packet('l'));
+		directionRightButton.addEventListener("click", () => send_presentation_packet('r'));
+		directionUpButton.addEventListener("click", () => send_presentation_packet('u'));
+		directionDownButton.addEventListener("click", () => send_presentation_packet('d'));
+
+		// Mouse magic
+
+		let last_time = 0;	
+
+		let mouseX = 0.5;
+		let mouseY = 0.5;
+
+		let lastTouchX = 0;
+		let lastTouchY = 0;
+
+		let sensitivity = 0.005;
+
+		touchPad.addEventListener('touchstart', (e) => {
+			lastTouchX = e.touches[0].pageX;
+			lastTouchY = e.touches[0].pageY;
+		});
+
+		touchPad.addEventListener('touchmove', (e) => {
+			console.log("dragging");
+			let x = e.touches[0].pageX;
+			let y = e.touches[0].pageY;
+
+			let dx = x - lastTouchX;
+			let dy = y - lastTouchY;
+
+			mouseX += dx * sensitivity;
+			mouseY += dy * sensitivity;
+
+			mouseX = Math.min(Math.max(0,mouseX),1);
+			mouseY = Math.min(Math.max(0,mouseY),1);
+
+			lastTouchX = x;
+			lastTouchY = y;
+
+			send_mouse_packet(mouseX, mouseY);
+
+			last_time = Date.now();
+
+		});
+
+		mouseLeftButton.addEventListener('click', () => send_button_packet(0)); 
+		mouseMiddleButton.addEventListener('click', () => send_button_packet(2)); 
+		mouseRightButton.addEventListener('click', () => send_button_packet(1)); 
+	</script>
+</html>
