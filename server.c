@@ -616,6 +616,7 @@ int main(void) {
     int server_sock, client_sock;
     int server_running;
     struct sockaddr_in server_addr;
+    char *addr_s, port_s[8] = {0};
 
     /* create TCP socket */
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -647,13 +648,17 @@ int main(void) {
         exit(1);
     }
 
-    printf(
-        "\n\x1b[33m _______________________________________________\n |\n |\n");
-    printf(" |   \x1b[0mListening on \x1b[32mhttp://%s:%d/\n",
-           inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
-    printf(
-        "\x1b[33m |\n "
-        "|______________________________________________\n\x1b[0m\n");
+    addr_s = inet_ntoa(server_addr.sin_addr);
+    sprintf(port_s, "%d", ntohs(server_addr.sin_port));
+
+    printf("\n\x1b[33m");
+    printf(" _______________________________________________\n");
+    printf(" |\n");
+    printf(" |\n");
+    printf(" |   \x1b[0mListening on \x1b[32mhttp://%s:%s/\n", addr_s, port_s);
+    printf("\x1b[33m");
+    printf(" |\n");
+    printf(" |______________________________________________\n\x1b[0m\n");
 
 #if USE_QRENCODE
 
@@ -661,8 +666,7 @@ int main(void) {
 
     if ((pid = fork()) == 0) {
         char url[256] = {0};
-        sprintf(url, "http://%s:%d/\n", inet_ntoa(server_addr.sin_addr),
-                ntohs(server_addr.sin_port));
+        sprintf(url, "http://%s:%s/\n", addr_s, port_s);
 
         const char* args[] = {"qrencode", "-t", "ansiutf8", url,
                               "-m",       "4",  NULL};
